@@ -108,25 +108,6 @@ class TinderBot():
 # AI bits
 
 
-  def choose(self):
-    scrs = self.current_scores()
-    choice = "DISLIKE"
-    if len(scrs) == 0:
-      self.dislike()
-    elif [scr > self.threshold for scr in scrs] == len(scrs) * [True]:
-      self.like() # if there are several faces, they must all have
-      choice = "LIKE" # better score than threshold to be liked
-    else:
-      self.dislike()
-
-    print("Scores : ",
-          scrs,
-          " | Choice : ",
-          choice,
-          " | Threshold : ",
-          self.threshold)
-
-
   def ai_swipe(self):
     sleep(0.1)
     try:
@@ -144,6 +125,36 @@ class TinderBot():
     self.ai_swipe()
 
 
+  def choose(self):
+    scrs = self.current_scores()
+    choice = "DISLIKE"
+    if len(scrs) == 0:
+      self.dislike()
+    elif [scr > self.threshold for scr in scrs] == len(scrs) * [True]:
+      self.like() # if there are several faces, they must all have
+      choice = "LIKE" # better score than threshold to be liked
+    else:
+      self.dislike()
+
+    self.display_scores(scrs, choice)
+
+
+  def current_scores(self):
+    # TODO: get the next image - or the clearest image in the group
+    url = self.get_image_path()
+    outPath = os.path.join(APP_ROOT, 'images', os.path.basename(url))
+    download_image(url, outPath)
+    return scores(outPath)
+
+
+  def display_scores(self, scrs, choice):
+    print("Scores : ",
+          scrs,
+          " | Choice : ",
+          choice,
+          " | Threshold : ",
+          self.threshold)
+
   def get_image_path(self):
     body = self.driver.find_element_by_xpath('//*[@id="content"]/div/div[1]/div/main/div[1]/div/div/div[1]/div/div[1]/div[3]/div[1]/div[1]/div/div[1]/div')
     bodyHTML = body.get_attribute('innerHTML')
@@ -153,15 +164,7 @@ class TinderBot():
 
     start = bodyHTML.find(startMarker) + len(startMarker)
     end = bodyHTML.find(endMarker)
-    result = bodyHTML[start:end]
-    return result
-
-
-  def current_scores(self):
-    url = self.get_image_path()
-    outPath = os.path.join(APP_ROOT, 'images', os.path.basename(url))
-    download_image(url, outPath)
-    return scores(outPath)
+    return bodyHTML[start:end]
 
 
 # --------------------------------------------------------------------------------
@@ -172,7 +175,8 @@ def download_image(source, destination):
 
 
 
-
+# startup process
 bot = TinderBot()
 bot.navigate_to_login()
+sleep(2)
 bot.login()
