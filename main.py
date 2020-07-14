@@ -2,9 +2,9 @@ from selenium import webdriver
 # from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 from secrets import email, password
-import requests, os
+import requests, os, shutil
 
-from hotness_predictor import scores
+from attractiveness_predictor import scores
 
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +42,7 @@ class TinderBot():
     fb_button = self.driver.find_element_by_xpath(self.fb_button_xpath)
     fb_button.click()
     # switch to login popup
+    sleep(0.75)
     self.driver.switch_to_window(self.driver.window_handles[1])
 
     email_in = self.driver.find_element_by_xpath('//*[@id="email"]')
@@ -122,19 +123,25 @@ class TinderBot():
           print('--------------------------------------')
           print("Error: {0}".format(err))
 
-    self.ai_swipe()
-
+  def ai_swipe_loop(self):
+    while True:
+      self.ai_swipe()
 
   def choose(self):
+
     scrs = self.current_scores()
     choice = "DISLIKE"
+
     if len(scrs) == 0:
       self.dislike()
-    elif [scr > self.threshold for scr in scrs] == len(scrs) * [True]:
+    elif [scr >= self.threshold for scr in scrs] == len(scrs) * [True]:
       self.like() # if there are several faces, they must all have
       choice = "LIKE" # better score than threshold to be liked
     else:
       self.dislike()
+
+    img_dest = self.evaluated_image_path(self.current_img_path, choice == "LIKE")
+    move_image_to_assigned_folder(self.current_img_path, img_dest)
 
     self.display_scores(scrs, choice)
 
@@ -142,8 +149,9 @@ class TinderBot():
   def current_scores(self):
     # TODO: get the next image - or the clearest image in the group
     url = self.get_image_path()
-    outPath = os.path.join(APP_ROOT, 'images', os.path.basename(url))
+    outPath = self.new_image_path(url)
     download_image(url, outPath)
+    self.current_img_path = outPath
     return scores(outPath)
 
 
@@ -154,6 +162,14 @@ class TinderBot():
           choice,
           " | Threshold : ",
           self.threshold)
+
+
+  def evaluated_image_path(self, url, did_like=False):
+    dest = 'liked' if did_like else 'disliked'
+    return os.path.join(APP_ROOT, f'images/{dest}', os.path.basename(url))
+  
+  def new_image_path(self, url):
+    return os.path.join(APP_ROOT, 'images', os.path.basename(url))
 
   def get_image_path(self):
     body = self.driver.find_element_by_xpath('//*[@id="content"]/div/div[1]/div/main/div[1]/div/div/div[1]/div/div[1]/div[3]/div[1]/div[1]/div/div[1]/div')
@@ -166,6 +182,9 @@ class TinderBot():
     end = bodyHTML.find(endMarker)
     return bodyHTML[start:end]
 
+
+def move_image_to_assigned_folder(src, dest):
+  shutil.move(src , dest)
 
 # --------------------------------------------------------------------------------
 def download_image(source, destination):
